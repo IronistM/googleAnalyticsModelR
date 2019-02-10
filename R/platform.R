@@ -130,16 +130,16 @@ ga_model_make <- function(data_f,
     is.function(model_f)
   )
   
-  if(any(setdiff(names(formals(data_f)),"...") %in% names(formals(model_f)))){
+  if(any(function_args(data_f) %in% function_args(model_f))){
     stop("data_f() and model_f() functions should not have same argument names",
          call. = FALSE)
   }
   
-  if(!any(names(formals(data_f)) == "...")){
+  if(!any(function_args(data_f, TRUE) == "...")){
     stop("data_f() arguments need to include ...", call.=FALSE)
   }
   
-  if(!any(names(formals(model_f)) == "...")){
+  if(!any(function_args(data_f, TRUE) == "...")){
     stop("model_f() arguments need to include ...", call.=FALSE)
   }
   
@@ -202,4 +202,5 @@ create_shiny_module_funcs <- function(data_f,
   )
   
 }
+
 
