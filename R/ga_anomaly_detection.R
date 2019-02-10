@@ -40,47 +40,10 @@ ga_check_anomaly <- function(...,
   if("dateHour" %in% colnames(df)){
     # modify date column to POSIXct object from integer like 2014010101
     loadNamespace("lubridate")
-    df <- df %>% dplyr::mutate( dateHour = lubridate::ymd_h(dateHour) )
+    df <- df %>% dplyr::mutate(dateHour = lubridate::ymd_h(dateHour) )
     time_unit <- 'hour'
   }
 
-  data <- df %>% select_(time_col,value_col)
-
-  # Need to make date a POSIXct!
-  # data$date <- as.POSIXct(data$date)
-
-  #Let's rename the columns to match what is expected from
-  # AnomalyDetection() internals
-  colnames(data) <- c("timestamp", "count")
-
-  data[is.na(data[, 2]), 2] <- 0
-  a_result <- AnomalyDetection::AnomalyDetectionTs(
-    data,
-    plot = T,
-    direction = direction,
-    piecewise_median_period_weeks = piecewise_median_period_wk,
-    max_anoms = anoms,
-    longterm = longterm,
-    title = title,
-    y_log = y_log,
-    ...
-  )
-  # if there are more than 0 anomalies, generate plots
-  if (nrow(a_result$anoms[2]) > 0) {
-    sstats = summary(data)
-    # png(anomaly_plot)
-    a_result$plot +
-      hrbrthemes::scale_color_ipsum() +
-      ggplot2::ylab("# Events") +
-      ggplot2::xlab("Date") +
-      hrbrthemes::theme_ipsum_rc(grid = "X") +
-      ggplot2::theme(
-        axis.text.y = element_text(size = 15),
-        axis.text.x = element_text(size = 15),
-        legend.position = "bottom",
-        legend.text = element_text(size = 0)
-      )
-  }
-  else
-    break
+  # now we can use `do_anomaly_detection` from exploratory
+  exploratory::do_anomaly_detection(df, time_col, value_col, ...)
 }
