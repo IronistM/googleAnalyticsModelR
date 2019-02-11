@@ -50,17 +50,17 @@ library(googleAnalyticsModelR)
 get_model_data <- function(viewId, 
                            date_range = c(Sys.Date()- 300, Sys.Date()), 
                            ...){
-   google_analytics(viewId, 
-                    date_range = date_range, 
-                    metrics = "sessions", 
-                    dimensions = "date", 
-                    max = -1)
+  google_analytics(viewId, 
+                   date_range = date_range, 
+                   metrics = "sessions", 
+                   dimensions = "date", 
+                   max = -1)
  }
 
 decompose_sessions <- function(df, ...){
-   web_data_ts <- ts(df$sessions, frequency = 7)
-   d <- decompose(web_data_ts)
-   plot(d)
+  web_data_ts <- ts(df$sessions, frequency = 7)
+  d <- decompose(web_data_ts)
+  list(decom = d, plot = plot(d))
 }
  
 decomp_ga <- ga_model_make(get_model_data,
@@ -153,3 +153,107 @@ ga_model(123875646,
          max_anoms = 0.5)
 ```
 
+# Creating Shiny modules
+
+The models are also put into Shiny modules that can be used against a end user's own data.
+
+In that case, you also need to provide the Shiny output and render functions for the model.
+
+An example reusing the decomposition example above is shown
+
+```r
+library(googleAnalyticsR) # assume auto-authentication
+library(googleAnalyticsModelR)
+
+get_model_data <- function(viewId, 
+                           date_range = c(Sys.Date()- 300, Sys.Date()), 
+                           ...){
+  google_analytics(viewId, 
+                   date_range = date_range, 
+                   metrics = "sessions", 
+                   dimensions = "date", 
+                   max = -1)
+ }
+
+decompose_sessions <- function(df, ...){
+  web_data_ts <- ts(df$sessions, frequency = 7)
+  d <- decompose(web_data_ts)
+  list(decom = d, plot = plot(d))
+}
+ 
+# to use in Shiny, supply the output and render functions
+myRenderPlot <- function(x){
+  # base plot needs to plot here, not in model_f as can't pass plot objects
+  shiny::renderPlot(plot(x$decom))
+}
+ 
+decomp_ga <- ga_model_make(get_model_data,
+                           required_columns = c("date", "sessions"),
+                           model_f = decompose_sessions,
+                           description = "Performs decomposition on session data and creates a plot",
+                           outputShiny = shiny::plotOutput,
+                           renderShiny = myRenderPlot)
+
+# save the model for use later
+ga_model_save(decomp_ga, filename = "decomp_ga.gamr")
+```
+
+The Shiny modules are saved in `decomp_model$shiny_module` and contain the UI and server side elements for Shiny as explained at https://shiny.rstudio.com/articles/modules.html
+
+To use the modules you set them in your ui and server side functions.
+
+In this case the decomposition model is available in `decomp_model`
+
+```
+# load up the model at runtime
+decomp_model <- ga_model_load("decomp_ga.gamr")
+
+# within your ui
+  ...
+  decomp_model$shiny_module$ui("demo1")
+  ...
+
+# within your server - view_id comes from googleAnalyticsR::authDropdown
+  ...
+  callModule(decomp_model$shiny_module$server, "demo1", view_id = view_id)
+  ...
+
+```
+
+
+This can then be used in a Shiny app that hooks into `googleAnalyticsR` multi-user login features:
+
+```r
+library(shiny)
+library(googleAuthR)
+library(googleAnalyticsR)
+library(googleAnalyticsModelR)
+
+# set your own Google Cloud Project credentials
+googleAuthR::gar_set_client(scopes = "https://www.googleapis.com/auth/analytics.readonly")
+
+decomp_model <- ga_model_load("decomp_ga.gamr")
+
+## ui.R
+ui <- fluidPage(title = "googleAnalyticsR Model Shiny Demo",
+                authDropdownUI("picker"),
+                h1("Decomp Model"),
+                decomp_model$shiny_module$ui("demo1")
+)
+
+## server.R
+server <- function(input, output, session){
+
+  # create a non-reactive access_token as we should never get past this if not authenticated
+  gar_shiny_auth(session)
+
+  view_id <- callModule(authDropdown, "picker", ga.table = reactive(ga_account_list()))
+
+  callModule(decomp_model$shiny_module$server, "demo1", view_id = view_id)
+
+  output$view_id <- renderText(view_id())
+
+}
+
+shinyApp(gar_shiny_ui(ui, login_ui = gar_shiny_login_ui), server)
+```

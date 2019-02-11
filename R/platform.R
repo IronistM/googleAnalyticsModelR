@@ -81,7 +81,8 @@ ga_model_load <- function(filename = "my-model.gamr"){
 #'   must take data from result of data_f in first argument.
 #' @param required_packages The packages needed for data_f and model_f to work
 #' @param description An optional description of what the model does
-#' @param ui_out_func A shiny UI output function that will display the results of model_f
+#' @param renderShiny A shiny render function that will create the output for outputShiny from model_f
+#' @param outputShiny A shiny UI output function that will display the results renderShiny
 #'
 #' The passed functions should all have \code{...} to make them flexible
 #'   in what arguments can be added.  Do not have the same argument names in both functions.
@@ -130,13 +131,27 @@ ga_model_load <- function(filename = "my-model.gamr"){
 #'
 #'  ga_model(81416156, model2)
 #'
+#'  # to use in Shiny, supply the output and render functions
+#'  myRenderPlot <- function(x){
+#'    # base plot needs to plot here, not in model_f as can't pass plot objects
+#'    shiny::renderPlot(plot(x$decom))
+#'  }
+#'
+#'  decomp_ga <- ga_model_make(get_model_data,
+#'                             required_columns = c("date", "sessions"),
+#'                             model_f = decompose_sessions,
+#'                             description = "Performs decomposition on session data and creates a plot",
+#'                             outputShiny = shiny::plotOutput,
+#'                             renderShiny = myRenderPlot)
+#'
 #' }
 ga_model_make <- function(data_f,
                           required_columns,
                           model_f,
                           required_packages = NULL,
                           description = NULL,
-                          ui_out_func = shiny::textOutput){
+                          outputShiny = shiny::plotOutput,
+                          renderShiny = function(x) shiny::renderPlot(plot(x))){
 
   assert_that(
     is.function(data_f),
@@ -166,7 +181,8 @@ ga_model_make <- function(data_f,
       description = description,
       shiny_module = create_shiny_module_funcs(data_f = data_f,
                                                model_f = model_f,
-                                               ui_out_func = ui_out_func)
+                                               outputShiny = outputShiny,
+                                               renderShiny = renderShiny)
     ), class = "ga_model"
   )
 
@@ -180,35 +196,50 @@ is.ga_model <- function(x){
 #' @import assertthat
 create_shiny_module_funcs <- function(data_f,
                                       model_f,
-                                      ui_out_func = shiny::textOutput){
+                                      outputShiny,
+                                      renderShiny){
   assert_that(
     is.function(data_f),
     is.function(model_f),
-    is.function(ui_out_func)
+    is.function(outputShiny),
+    is.function(renderShiny)
   )
 
   server_func <- function(input, output, session, view_id, ...){
 
     gadata <- shiny::reactive({
-      shiny::validate(shiny::need(selected_id()))
 
-      do.call(data_f, args = c(list(view_id = view_id()),
-                               list(...)))
+      view_id <- view_id()
+
+      data_f(view_id, ...)
+
     })
 
     model_output <- shiny::reactive({
-      shiny::validate(shiny::need(gadata()))
+      shiny::validate(shiny::need(gadata(), message = "Waiting for data"))
+      gadata <- gadata()
 
-      do.call(model_f, args = c(list(gadata = gadata()),
-                                list(...)))
+      model_f(gadata, ...)
+
     })
+
+    output$ui_out <- renderShiny({
+      shiny::validate(shiny::need(model_output(), message = "Waiting for model output"))
+
+      message("Rendering model output")
+
+      model_output()
+
+    }, ...)
+
+    return(model_output)
   }
 
   ui_func <- function(id, ...){
     ns <- shiny::NS(id)
 
-    do.call(ui_out_func, args = c(outputId = ns("ui_out_func"),
-                                  list(...)))
+    outputShiny(outputId = ns("ui_out"), ...)
+
   }
 
   list(

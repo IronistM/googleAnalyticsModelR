@@ -6,7 +6,8 @@
 \usage{
 ga_model_make(data_f, required_columns, model_f,
   required_packages = NULL, description = NULL,
-  ui_out_func = shiny::textOutput)
+  outputShiny = shiny::plotOutput, renderShiny = function(x)
+  shiny::renderPlot(plot(x)))
 }
 \arguments{
 \item{data_f}{A function that gets the data -
@@ -21,10 +22,12 @@ must take data from result of data_f in first argument.}
 
 \item{description}{An optional description of what the model does}
 
-\item{ui_out_func}{A shiny UI output function that will display the results of model_f
+\item{outputShiny}{A shiny UI output function that will display the results renderShiny
 
 The passed functions should all have \code{...} to make them flexible
   in what arguments can be added.  Do not have the same argument names in both functions.}
+
+\item{renderShiny}{A shiny render function that will create the output for outputShiny from model_f}
 }
 \description{
 Modelling function factory for Google Analytics data
@@ -68,6 +71,19 @@ Modelling function factory for Google Analytics data
  model2 <- ga_model_load(model_location)
 
  ga_model(81416156, model2)
+
+ # to use in Shiny, supply the output and render functions
+ myRenderPlot <- function(x){
+   # base plot needs to plot here, not in model_f as can't pass plot objects
+   shiny::renderPlot(plot(x$decom))
+ }
+
+ decomp_ga <- ga_model_make(get_model_data,
+                            required_columns = c("date", "sessions"),
+                            model_f = decompose_sessions,
+                            description = "Performs decomposition on session data and creates a plot",
+                            outputShiny = shiny::plotOutput,
+                            renderShiny = myRenderPlot)
 
 }
 }
