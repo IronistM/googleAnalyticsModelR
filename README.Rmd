@@ -47,7 +47,7 @@ The functions need to not use the same arguments, and both include `...` as the 
 library(googleAnalyticsR) # assume auto-authentication
 library(googleAnalyticsModelR)
 
- get_model_data <- function(viewId, 
+get_model_data <- function(viewId, 
                            date_range = c(Sys.Date()- 300, Sys.Date()), 
                            ...){
    google_analytics(viewId, 
@@ -57,31 +57,31 @@ library(googleAnalyticsModelR)
                     max = -1)
  }
 
- decompose_sessions <- function(df, ...){
+decompose_sessions <- function(df, ...){
    web_data_ts <- ts(df$sessions, frequency = 7)
    d <- decompose(web_data_ts)
    plot(d)
- }
+}
  
- decomp_ga <- ga_model_make(get_model_data,
-                            required_columns = c("date", "sessions"),
-                            model_f = decompose_sessions,
-                            description = "Performs decomposition on session data and creates a plot")
+decomp_ga <- ga_model_make(get_model_data,
+                           required_columns = c("date", "sessions"),
+                           model_f = decompose_sessions,
+                           description = "Performs decomposition on session data and creates a plot")
  
- # fetches data and outputs decomposition
- ga_model(81416156, decomp_ga)
+# fetches data and outputs decomposition
+ga_model(81416156, decomp_ga)
  
- # save the model for later
- model_location <- "inst/models/decomp_ga.gamr"
- ga_model_save(decomp_ga, filename = model_location)
+# save the model for later
+model_location <- "inst/models/decomp_ga.gamr"
+ga_model_save(decomp_ga, filename = model_location)
  
- # can load model from file
- ga_model(81416156, model_location)
+# can load model from file
+ga_model(81416156, model_location)
  
- # load model and use again
- model2 <- ga_model_load(model_location)
+# load model and use again
+model2 <- ga_model_load(model_location)
  
- ga_model(81416156, model2)
+ga_model(81416156, model2)
 ```
 
 ## More complicated example
