@@ -45,5 +45,5 @@ ga_check_anomaly <- function(...,
   }
 
   # now we can use `do_anomaly_detection` from exploratory
-  exploratory::do_anomaly_detection(df, time_col, value_col, ...)
+  exploratory::do_anomaly_detection_(df, time_col, value_col, ...)
 }
