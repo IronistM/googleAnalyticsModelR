@@ -19,9 +19,9 @@ check_packages_installed <- function(x, stop_if_not = TRUE){
   check_one <- function(y){
     its_here <- TRUE
     if (!requireNamespace(y, quietly = TRUE)) {
-      nope <- sprintf("%s needed for this function to work. Please install it via install.packages('%s')",
+      nope <- sprintf("%s needed for this function to work. Please install it including dependencies",
                       y,y)
-      if(stop_if_not) stop(nope, call. = FALSE) else myMessage(nope)
+      if(stop_if_not) stop(nope, call. = FALSE) else message(nope)
       if(!stop_if_not) its_here <- FALSE
     }
     return(its_here)

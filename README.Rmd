@@ -20,28 +20,31 @@ remotes::install_github("IronistM/googleAnalyticsModelR")
 For end users, they can just load the model then apply it to their data:
 
 ```{r message=FALSE, warning=FALSE}
-library(googleAnalyticsR)
+library(googleAnalyticsR)  # assume auto-authentication
 library(googleAnalyticsModelR)
 
 # fetches data and outputs decomposition
-my_viewid = 81416156
-model_location <- "inst/models/decomp_ga.gamodel"
-decomp <- ga_model(my_viewid, model = model_location)
-plot(decomp$d)
+my_viewid <- 81416156
+decomp_ga <- "inst/models/decomp_ga.gamr"
+ga_model(my_viewid, model = decomp_ga)
+
+#repeat with another viewId
+ga_model(123875646, model = decomp_ga)
+
 ```
 
 ## Creating models
 
 It needs:
 
-* A function to collect the data you will need
-* A function to work with the data you have fetched
+* A function to collect the data you will need.  The first argument should be `viewId`
+* A function to work with the data you have fetched.  The first argument should be the data.frame that is produced by the data fetching function.
 * Specification of which R libraries the functions need
 
 The functions need to not use the same arguments, and both include `...` as the dots are shared between them.
 
 ```r
-library(googleAnalyticsR)
+library(googleAnalyticsR) # assume auto-authentication
 library(googleAnalyticsModelR)
 
  get_model_data <- function(viewId, 
@@ -57,20 +60,19 @@ library(googleAnalyticsModelR)
  decompose_sessions <- function(df, ...){
    web_data_ts <- ts(df$sessions, frequency = 7)
    d <- decompose(web_data_ts)
-   list(decom = d, plot = plot(d))
+   plot(d)
  }
  
  decomp_ga <- ga_model_make(get_model_data,
                             required_columns = c("date", "sessions"),
                             model_f = decompose_sessions,
                             description = "Performs decomposition on session data and creates a plot")
-                            )
  
  # fetches data and outputs decomposition
  ga_model(81416156, decomp_ga)
  
  # save the model for later
- model_location <- "inst/models/decomp_ga.gamodel"
+ model_location <- "inst/models/decomp_ga.gamr"
  ga_model_save(decomp_ga, filename = model_location)
  
  # can load model from file
@@ -81,3 +83,73 @@ library(googleAnalyticsModelR)
  
  ga_model(81416156, model2)
 ```
+
+## More complicated example
+
+Using `?ga_anomaly_detection`
+
+```{r}
+library(googleAnalyticsR)
+library(googleAnalyticsModelR)
+
+get_anom_data <- function(viewId, 
+                          date_range = c(Sys.Date()-600, Sys.Date()),
+                          ...){
+  google_analytics(viewId, date_range = date_range,
+                   metrics = c("sessions","users"),
+                   dimensions = "date", 
+                   max = -1)
+}
+
+do_anomaly <- function(df, 
+                       value_col = "sessions",
+                       max_anoms = 0.1,
+                       ...){
+  ga_check_anomaly(
+    df = df,
+    time_col = "date",
+    value_col = value_col,
+    max_anoms = max_anoms
+  )
+}
+
+req_packs <- c("lubridate", "dplyr", "exploratory", "AnomalyDetection")
+
+anomaly_model <- ga_model_make(get_anom_data,
+                               required_columns = c("date","sessions","users"),
+                               model_f = do_anomaly,
+                               required_packages = req_packs,
+                               description = "Anomaly detection using Twitter algo on users or sessions")
+# print out model details
+anomaly_model
+
+# save it to a file for use later
+ga_model_save(anomaly_model, "inst/models/anomaly_model.gamr")
+
+```
+
+To use, we now have more arguments an end user can specify:
+
+```{r message=FALSE, warning=FALSE}
+library(googleAnalyticsR)  # assume auto-authentication
+library(googleAnalyticsModelR)
+
+# install any needed libraries
+#remotes::install_github("twitter/AnomalyDetection")
+
+my_viewid <- 81416156
+ga_model(my_viewid, 
+         model = "inst/models/anomaly_model.gamr",
+         date_range = c(Sys.Date()-601, Sys.Date()-1),
+         value_col = "users",
+         max_anoms = 0.5)
+
+
+#repeat with another viewId
+ga_model(123875646, 
+         model = "inst/models/anomaly_model.gamr",
+         date_range = c(Sys.Date()-601, Sys.Date()-1),
+         value_col = "users",
+         max_anoms = 0.5)
+```
+
