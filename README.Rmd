@@ -26,10 +26,16 @@ library(googleAnalyticsModelR)
 # fetches data and outputs decomposition
 my_viewid <- 81416156
 decomp_ga <- "inst/models/decomp_ga.gamr"
-ga_model(my_viewid, model = decomp_ga)
+d1 <- ga_model(my_viewid, model = decomp_ga)
 
 #repeat with another viewId
-ga_model(123875646, model = decomp_ga)
+d2 <- ga_model(123875646, model = decomp_ga)
+
+# Example CausalImpact
+ga_model(81416156, model = "inst/models/causalImpact_model.gamr", 
+         event_date = Sys.Date() - 51, 
+         predictors = "Direct", 
+         response = "Organic Search")
 
 ```
 
@@ -85,6 +91,8 @@ ga_model(81416156, model2)
 ```
 
 ## More complicated example
+
+### Anomaly detection
 
 Using `?ga_anomaly_detection`
 
@@ -151,6 +159,78 @@ ga_model(123875646,
          date_range = c(Sys.Date()-601, Sys.Date()-1),
          value_col = "users",
          max_anoms = 0.5)
+```
+
+### Causal Impact
+
+Example doing CausalImpact as per dartistics.com http://www.dartistics.com/timeseries.html
+
+```{r}
+library(googleAnalyticsR)
+library(googleAnalyticsModelR)
+
+get_ci_data <- function(viewId, 
+                        date_range = c(Sys.Date()-600, Sys.Date()),
+                        ...){
+  
+  google_analytics(viewId, 
+                   date_range = date_range,
+                   metrics = "sessions",
+                   dimensions = c("date", "channelGrouping"), 
+                   max = -1)
+}
+
+# response_dim is the channel to predict.
+# predictors help with forecast
+do_ci <- function(df, 
+                  event_date,
+                  response = "Organic Search",
+                  predictors = c("Video","Social","Direct"),
+                  ...){
+  
+  message("CausalImpact input data columns: ", paste(names(df), collapse = " "))
+  # restrict to one response 
+  stopifnot(is.character(response), 
+            length(response) == 1,
+            assertthat::is.date(event_date),
+            is.character(predictors))
+  
+  pivoted <- df %>% 
+    tidyr::spread(channelGrouping, sessions)
+  
+  stopifnot(response %in% names(pivoted),
+            predictors %in% names(pivoted))
+  
+  ## create a time-series zoo object
+  web_data_xts <- xts::xts(pivoted[-1], order.by = as.Date(pivoted$date), frequency = 7)
+  
+  pre.period <- as.Date(c(min(df$date), event_date))
+  post.period <- as.Date(c(event_date + 1, max(df$date)))
+  
+  predictors <- intersect(predictors, names(web_data_xts))
+
+  ## data in order of response, predictor1, predictor2, etc.
+  model_data <- web_data_xts[,c(response,predictors)]
+  
+  # deal with names
+  names(model_data) <- make.names(names(model_data))
+  
+  impact <- CausalImpact::CausalImpact(model_data,  pre.period, post.period)
+  print(plot(impact))
+}
+
+req_packs <- c("CausalImpact", "xts", "tidyr", "googleAnalyticsR", "assertthat")
+
+ci_model <- ga_model_make(get_ci_data,
+                               required_columns = c("date","channelGrouping","sessions"),
+                               model_f = do_ci,
+                               required_packages = req_packs,
+                               description = "Causal Impact on channelGrouping data")
+# print out model details
+ci_model
+
+# save it to a file for use later
+ga_model_save(ci_model, "inst/models/causalImpact_model.gamr")
 ```
 
 # Creating Shiny modules

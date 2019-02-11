@@ -29,3 +29,14 @@ check_packages_installed <- function(x, stop_if_not = TRUE){
 
   walk(x, check_one)
 }
+
+
+#' assign new value if not null and check passes
+#' @noRd
+assign_new <- function(new, old, check_f = is.function){
+  if(!is.null(new)){
+    assert_that(check_f(new))
+    return(new)
+  }
+  old
+}

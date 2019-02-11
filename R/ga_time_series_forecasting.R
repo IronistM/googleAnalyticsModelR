@@ -37,7 +37,7 @@
 #' @param interval.width - Width of uncertainty intervals.
 #' @param uncertainty.samples - Number of simulations made for calculating uncertainty intervals. Default is 1000.
 #' @export
-#' @importFrom exploraratory
+#' @importFrom exploratory do_prophet
 ga_prophet_forecast <-
   function(df,
            time_col,
@@ -73,6 +73,10 @@ ga_prophet_forecast <-
     }
 
     # now we can use `do_anomaly_detection` from exploratory
-    library("prophet")
-    exploratory::do_prophet(df, time_col, value_col, ...)
+    if(require("prophet")){
+      exploratory::do_prophet(df, time_col, value_col, ...)
+    } else {
+      stop("library(prophet) not available")
+    }
+
   }

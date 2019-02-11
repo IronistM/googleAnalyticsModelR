@@ -19,6 +19,7 @@
 #' @param na_fill_value - Value to fill NA when na_fill_type is "value"
 #' @param ... extra values to be passed to AnomalyDetection::AnomalyDetectionTs.
 #' @export
+#' @importFrom exploratory do_anomaly_detection_
 ga_check_anomaly <- function(...,
                           df = NULL,
                           time_col = 'date',
