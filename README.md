@@ -319,8 +319,10 @@ This is available within the package via
 ### Using model objects within functions
 
 You can go more meta by encasing the model definition and use in another
-function. This is used by this example of Dartisitc's example "Time
-normalised pageviews" by Tim Wilson.
+function. This is used by this example of [Dartistic's example "Time
+normalised
+pageviews"](http://www.dartistics.com/googleanalytics/int-time-normalized.html)
+by Tim Wilson.
 
 To use the end result:
 

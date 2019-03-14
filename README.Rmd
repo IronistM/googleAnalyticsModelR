@@ -281,7 +281,7 @@ This is available within the package via `shiny::runApp(system.file("shiny/model
 
 ### Using model objects within functions
 
-You can go more meta by encasing the model definition and use in another function.  This is used by this example of Dartisitc's example "Time normalised pageviews" by Tim Wilson.
+You can go more meta by encasing the model definition and use in another function.  This is used by this example of [Dartistic's example "Time normalised pageviews"](http://www.dartistics.com/googleanalytics/int-time-normalized.html) by Tim Wilson.
 
 To use the end result:
 
@@ -295,7 +295,7 @@ output <- ga_time_normalised(81416156)
 
 `ga_time_normalised()` wraps a call to `ga_model()`;
 
-```r
+```{r}
 #' Time normalised traffic
 #'
 #' Based on \url{http://www.dartistics.com/googleanalytics/int-time-normalized.html} by Tim Wilson
@@ -329,7 +329,7 @@ ga_time_normalised <- function(viewId,
 
 The model itself is created by issuing `make_time_normalised()` and wraps the code ported from the Dartistics code example, putting it in the right function formats:
 
-```r
+```{r}
 #' Run this manually when you want to alter the saved model
 #' @noRd
 make_time_normalised <- function(){
