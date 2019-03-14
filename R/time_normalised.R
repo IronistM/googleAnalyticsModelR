@@ -11,6 +11,7 @@
 #' @return A \link[googleAnalyticsR]{ga_model} object
 #'
 #' @export
+#' @importFrom googleAnalyticsR ga_model_load ga_model
 ga_time_normalised <- function(viewId,
                                first_day_pageviews_min = 2,
                                total_unique_pageviews_cutoff = 500,

@@ -39,6 +39,25 @@ ci <- ga_model(81416156, model = "inst/models/causalImpact_model.gamr",
 
 ```
 
+## Forecasting example with prophet
+
+The model loading can itself be done in a function, until the final end user works with data like:
+
+```{r message=FALSE, warning=FALSE}
+library(prophet)
+library(dygraphs)
+library(googleAnalyticsR)
+
+ga_model_prophet(81416156,
+                 date_range = c(Sys.Date() - 400, Sys.Date() - 1),
+                 forecast_days = 30,
+                 metric = "sessions",
+                 dim_filter=NULL,
+                 interactive_plot = FALSE)
+
+```
+
+
 ## Creating model `.gamr` objects
 
 To create your own models, you need to predefine all the functions to look after the fetching, modelling and viewing of the data.  You then pass those functions to the `ga_model_make()` function.
