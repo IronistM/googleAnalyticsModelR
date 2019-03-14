@@ -47,12 +47,15 @@ user works with data like:
     library(dygraphs)
     library(googleAnalyticsR)
 
-    forecat_data <- ga_model_prophet(81416156,
+    forecast_data <- ga_model_prophet(81416156,
                        date_range = c(Sys.Date() - 400, Sys.Date() - 1),
                        forecast_days = 30,
                        metric = "sessions",
                        dim_filter=NULL,
                        interactive_plot = FALSE)
+    print(forecast_data$plot)
+
+![](README_files/figure-markdown_strict/unnamed-chunk-2-1.png)
 
 Creating model `.gamr` objects
 ------------------------------
