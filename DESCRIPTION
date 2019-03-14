@@ -34,4 +34,6 @@ LazyData: true
 VignetteBuilder: knitr
 RoxygenNote: 6.1.1
 Remotes: 
-    exploratory-io/exploratory_func
+    exploratory-io/exploratory_func,
+    MarkEdmondson1234/googleAnalyticsR
+    
