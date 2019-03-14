@@ -416,3 +416,68 @@ make_time_normalised <- function(){
 
 }
 ```
+
+Say we now save this model to `"time-normalised.gamr"`.  
+
+You can use the module functions to turn it into a Shiny app:
+
+In this case, we need to build the UI, and the input selections:
+
+```r
+library(shiny)             # R webapps
+library(gentelellaShiny)   # ui theme
+library(googleAuthR)       # auth login
+library(googleAnalyticsR) # get google analytics
+
+# the libraries needed by the model
+library(dplyr)
+library(plotly)
+library(scales)
+library(ggplot2)
+library(purrr)
+
+# set your GCP project for the auth
+gar_set_client(web_json = "your-client-web.json",
+               scopes = "https://www.googleapis.com/auth/analytics.readonly")
+
+model <- ga_model_load(filename = "time-normalised.gamr")
+
+ui <- gentelellaPage(
+  menuItems = list(sideBarElement(googleAuthUI("auth_menu"))),
+  title_tag = "GA Time Normalised Pages",
+  site_title = a(class="site_title", icon("phone"), span("Time normalised")),
+  footer = "Made in Denmark",
+
+  # shiny UI elements
+  column(width = 12, authDropdownUI("auth_dropdown", inColumns = TRUE)),
+  numericInput("first_day", "First day minimum pageviews", value = 2, min=0, max=100),
+  numericInput("total_min_cutoff", "Minimum Total pageviews", value = 500, min = 0, max = 1000),
+  numericInput("days_live", label = "Days Live", value = 60, min = 10, max = 400),
+  textInput("page_regex", label = "Page filter regex", value = ".*"),
+  h3("Time Normalised pages"),
+  model$shiny_module$ui("model1"),
+  br()
+
+)
+
+server <- function(input, output, session) {
+
+  gar_shiny_auth(session)
+
+  al <- reactive(ga_account_list())
+
+  # module for authentication
+  view_id <- callModule(authDropdown, "auth_dropdown", ga.table = al)
+
+  callModule(model$shiny_module$server,
+             "model1",
+             view_id = view_id,
+             first_day_pageviews_min = reactive(input$first_day),
+             total_unique_pageviews_cutoff = reactive(input$total_min_cutoff),
+             days_live_range = reactive(input$days_live),
+             page_filter_regex = reactive(input$page_regex))
+
+}
+# Run the application
+shinyApp(gar_shiny_ui(ui, login_ui = silent_auth), server)
+```
