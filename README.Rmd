@@ -48,12 +48,12 @@ library(prophet)
 library(dygraphs)
 library(googleAnalyticsR)
 
-ga_model_prophet(81416156,
-                 date_range = c(Sys.Date() - 400, Sys.Date() - 1),
-                 forecast_days = 30,
-                 metric = "sessions",
-                 dim_filter=NULL,
-                 interactive_plot = FALSE)
+forecat_data <- ga_model_prophet(81416156,
+                   date_range = c(Sys.Date() - 400, Sys.Date() - 1),
+                   forecast_days = 30,
+                   metric = "sessions",
+                   dim_filter=NULL,
+                   interactive_plot = FALSE)
 
 ```
 
