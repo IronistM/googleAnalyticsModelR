@@ -62,21 +62,19 @@ ga_prophet_forecast <-
     # Make sure we a date or datetime column is formatted as expected
     if("date" %in% colnames(df)){
       # modify date column to Date object from integer like 20140101
-      loadNamespace("lubridate")
       df <- df %>% dplyr::mutate( date = lubridate::ymd(date))
     }
 
     if("dateHour" %in% colnames(df)){
       # modify date column to POSIXct object from integer like 2014010101
-      loadNamespace("lubridate")
       df <- df %>% dplyr::mutate(dateHour = lubridate::ymd_h(dateHour))
     }
 
-    # now we can use `do_anomaly_detection` from exploratory
-    if(require("prophet")){
-      exploratory::do_prophet(df, time_col, value_col, ...)
-    } else {
+    # now we can use `do_prophet` from exploratory
+    if(!require("prophet")){
       stop("library(prophet) not available")
     }
+
+    exploratory::do_prophet_(df, time_col, value_col, ...)
 
   }
