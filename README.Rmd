@@ -32,142 +32,150 @@ d1 <- ga_model(my_viewid, model = decomp_ga)
 d2 <- ga_model(123875646, model = decomp_ga)
 
 # Example CausalImpact
-ga_model(81416156, model = "inst/models/causalImpact_model.gamr", 
+ci <- ga_model(81416156, model = "inst/models/causalImpact_model.gamr", 
          event_date = Sys.Date() - 51, 
          predictors = "Direct", 
          response = "Organic Search")
 
 ```
 
-## Creating models
+## Creating model `.gamr` objects
 
-It needs:
+To create your own models, you need to predefine all the functions to look after the fetching, modelling and viewing of the data.  You then pass those functions to the `ga_model_make()` function.
 
-* A function to collect the data you will need.  The first argument should be `viewId`
-* A function to work with the data you have fetched.  The first argument should be the data.frame that is produced by the data fetching function.
-* Specification of which R libraries the functions need
+The functions need to follow these specifications:
 
-The functions need to not use the same arguments, and both include `...` as the dots are shared between them.
+* `data_f` - A function to collect the data you will need. The first argument should be the `view_id` which will be pass the viewId of Google Analytics property to fetch data from.
+* `model_f` - A function to work with the data you have fetched. The first argument should be the data.frame that is produced by the data fetching function, `data_f()`.
+* `output_f` - A function to plot the data. The first argument should be the data.frame that is produced by the model function, `model_f()`. 
+* All functions you create must include `...` as an argument. 
+* All functions must use different arguments (apart from `...`), to avoid clashes.
+
+If you want to also create the Shiny modules, then you also need to specify:
+* `outputShiny` - the output function for the UI, such as `plotOutput`
+* `renderShiny` - the render function for the server, such as `renderPlot`
+
+You then supply supporting information to make sure the user can run the model:
+
+* `required_columns` - Specification of which columns the data will fetch.  It will fail if they are not present.
+* `required_packages` - The packages the end user needs to have installed to run your functions.
+* `description` - A sentence on what the model is so they can be distinguished. 
+
+To create the example model above, the above was applied as shown below:
 
 ```r
-library(googleAnalyticsR) # assume auto-authentication
-library(googleAnalyticsModelR)
-
-get_model_data <- function(viewId, 
-                           date_range = c(Sys.Date()- 300, Sys.Date()), 
+get_model_data <- function(viewId,
+                           date_range = c(Sys.Date()- 300, Sys.Date()),
                            ...){
-  google_analytics(viewId, 
-                   date_range = date_range, 
-                   metrics = "sessions", 
-                   dimensions = "date", 
-                   max = -1)
+   google_analytics(viewId,
+                    date_range = date_range,
+                    metrics = "sessions",
+                    dimensions = "date",
+                    max = -1)
  }
 
 decompose_sessions <- function(df, ...){
-  web_data_ts <- ts(df$sessions, frequency = 7)
-  d <- decompose(web_data_ts)
-  list(decom = d, plot = plot(d))
-}
+   decompose(ts(df$sessions, frequency = 7))
+ }
  
 decomp_ga <- ga_model_make(get_model_data,
                            required_columns = c("date", "sessions"),
                            model_f = decompose_sessions,
-                           description = "Performs decomposition on session data and creates a plot")
+                           output_f = graphics::plot,
+                           description = "Performs decomposition and creates a plot",
+                           outputShiny = shiny::plotOutput,
+                           renderShiny = shiny::renderPlot)
+```
+
+## Advanced use
+
+The more arguments you provide to the model creation functions, the more complicated it is for the end user, but the more flexible the model.  It is suggested making several narrow useage models is better than one complicated one.
+
+For instance, you could modify the above model to allow the end user to specify the metric, timespan and seasonality of the decomposition:
+
+```{r}
+get_model_data <- function(viewId,
+                           date_range = c(Sys.Date()- 300, Sys.Date()),
+                           metric,
+                           ...){
+   o <- google_analytics(viewId,
+                    date_range = date_range,
+                    metrics = metric,
+                    dimensions = "date",
+                    max = -1)
+    # rename the metric column so its found for modelling
+    o$the_metric <- o[, metric]
+    
+    o
+    
+ }
+
+decompose_sessions <- function(df, frequency, ...){
+   decompose(ts(df$the_metric, frequency = frequency))
+ }
  
-# fetches data and outputs decomposition
-ga_model(81416156, decomp_ga)
- 
-# save the model for later
-model_location <- "inst/models/decomp_ga.gamr"
-ga_model_save(decomp_ga, filename = model_location)
- 
-# can load model from file
-ga_model(81416156, model_location)
- 
-# load model and use again
-model2 <- ga_model_load(model_location)
- 
-ga_model(81416156, model2)
+decomp_ga_advanced <- ga_model_make(get_model_data,
+                           required_columns = c("date"), # less restriction on column
+                           model_f = decompose_sessions,
+                           output_f = graphics::plot,
+                           description = "Performs decomposition and creates a plot",
+                           outputShiny = shiny::plotOutput,
+                           renderShiny = shiny::renderPlot)
+                           
+```
+
+It would then be used via:
+
+```{r message=FALSE, warning=FALSE}
+result <- ga_model(81416156, decomp_ga_advanced, metric="users", frequency = 30)
+str(result, max.level = 1)
+```
+
+### Working with the model object
+
+The model objects prints to console in a friendly manner:
+
+```{r}
+decomp_ga_advanced
+```
+You can save and load model objects from a file.  It is suggested to save them with the `.gamr` suffix.
+
+```r
+# save model to a file
+ga_model_save(decomp_ga_advanced, filename = "my_model.gamr")
+
+# load model again
+ga_model_load("my_model.gamr")
+```
+
+You can use models directly from the file:
+
+```r
+ga_model(81416156, "my_model.gamr")
+```
+
+If you need to change parts of a model, `ga_model_edit()` lets you change individual aspects:
+
+```{r}
+ga_model_edit(decomp_ga_advanced, description = "New description")
+```
+
+You can also pass it the filename, which will load, make the edit, then save the model to disk again:
+
+```r
+ga_model_edit("my_model.gamr", description = "New description")
 ```
 
 ## More complicated example
 
-### Anomaly detection
+## CausalImpact example
 
-Using `?ga_anomaly_detection`
+To make your own portable GA Effect, this model uses the CausalImpact and dygraphs libraries to make a plot of your GA data.
 
-```{r}
-library(googleAnalyticsR)
-library(googleAnalyticsModelR)
-
-get_anom_data <- function(viewId, 
-                          date_range = c(Sys.Date()-600, Sys.Date()),
-                          ...){
-  google_analytics(viewId, date_range = date_range,
-                   metrics = c("sessions","users"),
-                   dimensions = "date", 
-                   max = -1)
-}
-
-do_anomaly <- function(df, 
-                       value_col = "sessions",
-                       max_anoms = 0.1,
-                       ...){
-  ga_check_anomaly(
-    df = df,
-    time_col = "date",
-    value_col = value_col,
-    max_anoms = max_anoms
-  )
-}
-
-req_packs <- c("lubridate", "dplyr", "exploratory", "AnomalyDetection")
-
-anomaly_model <- ga_model_make(get_anom_data,
-                               required_columns = c("date","sessions","users"),
-                               model_f = do_anomaly,
-                               required_packages = req_packs,
-                               description = "Anomaly detection using Twitter algo on users or sessions")
-# print out model details
-anomaly_model
-
-# save it to a file for use later
-ga_model_save(anomaly_model, "inst/models/anomaly_model.gamr")
-
-```
-
-To use, we now have more arguments an end user can specify:
-
-```{r message=FALSE, warning=FALSE}
-library(googleAnalyticsR)  # assume auto-authentication
-library(googleAnalyticsModelR)
-
-# install any needed libraries
-#remotes::install_github("twitter/AnomalyDetection")
-
-my_viewid <- 81416156
-ga_model(my_viewid, 
-         model = "inst/models/anomaly_model.gamr",
-         date_range = c(Sys.Date()-601, Sys.Date()-1),
-         value_col = "users",
-         max_anoms = 0.5)
-
-
-#repeat with another viewId
-ga_model(123875646, 
-         model = "inst/models/anomaly_model.gamr",
-         date_range = c(Sys.Date()-601, Sys.Date()-1),
-         value_col = "users",
-         max_anoms = 0.5)
-```
-
-### Causal Impact
-
-Example doing CausalImpact as per dartistics.com http://www.dartistics.com/timeseries.html
+This example model is available via `ga_model_example("ga-effect.gamr")`
 
 ```{r}
 library(googleAnalyticsR)
-library(googleAnalyticsModelR)
 
 get_ci_data <- function(viewId, 
                         date_range = c(Sys.Date()-600, Sys.Date()),
@@ -198,8 +206,7 @@ do_ci <- function(df,
   pivoted <- df %>% 
     tidyr::spread(channelGrouping, sessions)
   
-  stopifnot(response %in% names(pivoted),
-            predictors %in% names(pivoted))
+  stopifnot(response %in% names(pivoted))
   
   ## create a time-series zoo object
   web_data_xts <- xts::xts(pivoted[-1], order.by = as.Date(pivoted$date), frequency = 7)
@@ -214,126 +221,198 @@ do_ci <- function(df,
   
   # deal with names
   names(model_data) <- make.names(names(model_data))
-  
-  impact <- CausalImpact::CausalImpact(model_data,  pre.period, post.period)
-  print(plot(impact))
+  # remove any NAs
+  model_data[is.na(model_data)] <- 0
+
+  CausalImpact::CausalImpact(model_data,  pre.period, post.period)
+
 }
 
-req_packs <- c("CausalImpact", "xts", "tidyr", "googleAnalyticsR", "assertthat")
+dygraph_plot <- function(impact, event_date, ...){
+  require(dygraphs)
+  ## the data for the plot is in here
+  ci <- impact$series
+  
+  ci <- xts::xts(ci)
+
+  ## the dygraph output
+  dygraph(data=ci[,c('response', 'point.pred', 'point.pred.lower', 'point.pred.upper')], 
+          main="Expected (95% confidence level) vs Observed", group="ci") %>%
+    dyEvent(x = event_date, "Event") %>%
+    dySeries(c('point.pred.lower', 'point.pred','point.pred.upper'), 
+             label='Expected') %>%
+    dySeries('response', label="Observed")
+}
+
+req_packs <- c("CausalImpact", "xts", "tidyr", "googleAnalyticsR", "assertthat", "dygraphs")
 
 ci_model <- ga_model_make(get_ci_data,
-                               required_columns = c("date","channelGrouping","sessions"),
-                               model_f = do_ci,
-                               required_packages = req_packs,
-                               description = "Causal Impact on channelGrouping data")
+                          required_columns = c("date","channelGrouping","sessions"),
+                          model_f = do_ci,
+                          output_f = dygraph_plot,
+                          required_packages = req_packs,
+                          description = "Causal Impact on channelGrouping data",
+                          outputShiny = dygraphs::dygraphOutput,
+                          renderShiny = dygraphs::renderDygraph)
 # print out model details
 ci_model
+```
 
+
+```r
 # save it to a file for use later
-ga_model_save(ci_model, "inst/models/causalImpact_model.gamr")
+ga_model_save(ci_model, "causalImpact_model.gamr")
 ```
 
-# Creating Shiny modules
+To use:
 
-The models are also put into Shiny modules that can be used against a end user's own data.
+```{r message=FALSE, warning=FALSE}
+library(googleAnalyticsR)
+library(xts)
+library(tidyr)
+library(dygraphs)
 
-In that case, you also need to provide the Shiny output and render functions for the model.
-
-An example reusing the decomposition example above is shown
-
-```r
-library(googleAnalyticsR) # assume auto-authentication
-library(googleAnalyticsModelR)
-
-get_model_data <- function(viewId, 
-                           date_range = c(Sys.Date()- 300, Sys.Date()), 
-                           ...){
-  google_analytics(viewId, 
-                   date_range = date_range, 
-                   metrics = "sessions", 
-                   dimensions = "date", 
-                   max = -1)
- }
-
-decompose_sessions <- function(df, ...){
-  web_data_ts <- ts(df$sessions, frequency = 7)
-  d <- decompose(web_data_ts)
-  list(decom = d, plot = plot(d))
-}
- 
-# to use in Shiny, supply the output and render functions
-myRenderPlot <- function(x){
-  # base plot needs to plot here, not in model_f as can't pass plot objects
-  shiny::renderPlot(plot(x$decom))
-}
- 
-decomp_ga <- ga_model_make(get_model_data,
-                           required_columns = c("date", "sessions"),
-                           model_f = decompose_sessions,
-                           description = "Performs decomposition on session data and creates a plot",
-                           outputShiny = shiny::plotOutput,
-                           renderShiny = myRenderPlot)
-
-# save the model for use later
-ga_model_save(decomp_ga, filename = "decomp_ga.gamr")
+ci <- ga_model(81416156, ci_model, event_date = as.Date("2019-01-01"))
 ```
 
-The Shiny modules are saved in `decomp_model$shiny_module` and contain the UI and server side elements for Shiny as explained at https://shiny.rstudio.com/articles/modules.html
+Similarly, you can launch this in a Shiny app by slightly modifying the example above.  
 
-To use the modules you set them in your ui and server side functions.
+This is available within the package via `shiny::runApp(system.file("shiny/models-ga-effect", package="googleAnalyticsR"))`
 
-In this case the decomposition model is available in `decomp_model`
+### Using model objects within functions
 
-```
-# load up the model at runtime
-decomp_model <- ga_model_load("decomp_ga.gamr")
+You can go more meta by encasing the model definition and use in another function.  This is used by this example of Dartisitc's example "Time normalised pageviews" by Tim Wilson.
 
-# within your ui
-  ...
-  decomp_model$shiny_module$ui("demo1")
-  ...
+To use the end result:
 
-# within your server - view_id comes from googleAnalyticsR::authDropdown
-  ...
-  callModule(decomp_model$shiny_module$server, "demo1", view_id = view_id)
-  ...
-
-```
-
-
-This can then be used in a Shiny app that hooks into `googleAnalyticsR` multi-user login features:
-
-```r
-library(shiny)
-library(googleAuthR)
+```{r message=FALSE, warning=FALSE}
 library(googleAnalyticsR)
 library(googleAnalyticsModelR)
 
-# set your own Google Cloud Project credentials
-googleAuthR::gar_set_client(scopes = "https://www.googleapis.com/auth/analytics.readonly")
+output <- ga_time_normalised(81416156)
 
-decomp_model <- ga_model_load("decomp_ga.gamr")
+```
 
-## ui.R
-ui <- fluidPage(title = "googleAnalyticsR Model Shiny Demo",
-                authDropdownUI("picker"),
-                h1("Decomp Model"),
-                decomp_model$shiny_module$ui("demo1")
-)
+`ga_time_normalised()` wraps a call to `ga_model()`;
 
-## server.R
-server <- function(input, output, session){
+```r
+#' Time normalised traffic
+#'
+#' Based on \url{http://www.dartistics.com/googleanalytics/int-time-normalized.html} by Tim Wilson
+#'
+#' @param viewId The viewId to use
+#' @param first_day_pageviews_min threshold for first day of content
+#' @param total_unique_pageviews_cutoff threshold of minimum unique pageviews
+#' @param days_live_range How many days to show
+#' @param page_filter_regex Select which pages to appear
+#'
+#' @return A \link[googleAnalyticsR]{ga_model} object
+#'
+#' @export
+ga_time_normalised <- function(viewId,
+                               first_day_pageviews_min = 2,
+                               total_unique_pageviews_cutoff = 500,
+                               days_live_range = 60,
+                               page_filter_regex = ".*"){
 
-  # create a non-reactive access_token as we should never get past this if not authenticated
-  gar_shiny_auth(session)
+  model <- ga_model_load(filename = "inst/models/time-normalised.gamr")
 
-  view_id <- callModule(authDropdown, "picker", ga.table = reactive(ga_account_list()))
-
-  callModule(decomp_model$shiny_module$server, "demo1", view_id = view_id)
-
-  output$view_id <- renderText(view_id())
+  ga_model(viewId,
+           model,
+           first_day_pageviews_min = first_day_pageviews_min,
+           total_unique_pageviews_cutoff = total_unique_pageviews_cutoff,
+           days_live_range = days_live_range,
+           page_filter_regex = page_filter_regex)
 
 }
+```
 
-shinyApp(gar_shiny_ui(ui, login_ui = gar_shiny_login_ui), server)
+The model itself is created by issuing `make_time_normalised()` and wraps the code ported from the Dartistics code example, putting it in the right function formats:
+
+```r
+#' Run this manually when you want to alter the saved model
+#' @noRd
+make_time_normalised <- function(){
+
+  data_f <- function(viewId, page_filter_regex, ...){
+    page_filter_object <- dim_filter("pagePath",
+                                     operator = "REGEXP",
+                                     expressions = page_filter_regex)
+    page_filter <- filter_clause_ga4(list(page_filter_object),
+                                     operator = "AND")
+
+    google_analytics(viewId = viewId,
+                     date_range = c(Sys.Date() - 365, Sys.Date() - 1),
+                     metrics = "uniquePageviews",
+                     dimensions = c("date","pagePath"),
+                     dim_filters = page_filter,
+                     anti_sample = TRUE)
+
+  }
+  model_f <- function(ga_data,
+                      first_day_pageviews_min,
+                      total_unique_pageviews_cutoff,
+                      days_live_range,
+                      ...){
+    normalize_date_start <- function(page){
+      ga_data_single_page <- ga_data %>% filter(pagePath == page)
+      first_live_row <- min(which(ga_data_single_page$uniquePageviews > first_day_pageviews_min))
+      ga_data_single_page <- ga_data_single_page[first_live_row:nrow(ga_data_single_page),]
+      normalized_results <- data.frame(date = seq.Date(from = min(ga_data_single_page$date),
+                                                       to = max(ga_data_single_page$date),
+                                                       by = "day"),
+                                       days_live = seq(min(ga_data_single_page$date):
+                                                         max(ga_data_single_page$date)),
+                                       page = page) %>%
+        left_join(ga_data_single_page) %>%
+        mutate(uniquePageviews = ifelse(is.na(uniquePageviews), 0, uniquePageviews)) %>%
+        mutate(cumulative_uniquePageviews = cumsum(uniquePageviews)) %>%
+        select(page, days_live, uniquePageviews, cumulative_uniquePageviews)
+    }
+
+    pages_list <- ga_data %>%
+      group_by(pagePath) %>% summarise(total_traffic = sum(uniquePageviews)) %>%
+      filter(total_traffic > total_unique_pageviews_cutoff)
+
+    ga_data_normalized <- map_dfr(pages_list$pagePath, normalize_date_start)
+
+    ga_data_normalized %>% filter(days_live <= days_live_range)
+  }
+
+  output_f <- function(ga_data_normalized, ...){
+    gg <- ggplot(ga_data_normalized,
+                 mapping=aes(x = days_live, y = cumulative_uniquePageviews, color=page)) +
+      geom_line() +                                          # The main "plot" operation
+      scale_y_continuous(labels=comma) +                     # Include commas in the y-axis numbers
+      labs(title = "Unique Pageviews by Day from Launch",
+           x = "# of Days Since Page Launched",
+           y = "Cumulative Unique Pageviews") +
+      theme_light() +                                        # Clean up the visualization a bit
+      theme(panel.grid = element_blank(),
+            panel.border = element_blank(),
+            legend.position = "none",
+            panel.grid.major.y = element_line(color = "gray80"),
+            axis.ticks = element_blank())
+
+    ggplotly(gg)
+  }
+  required_columns <- c("date","pagePath","uniquePageviews")
+  required_packages <- c("plotly", "scales", "dplyr", "purrr", "ggplot2")
+
+  model <- ga_model_make(
+    data_f = data_f,
+    required_columns = required_columns,
+    model_f = model_f,
+    output_f = output_f,
+    required_packages = required_packages,
+    description = "Cumalitive visualisation of time-normalised traffic",
+    outputShiny = plotly::plotlyOutput,
+    renderShiny = plotly::renderPlotly
+  )
+
+  ga_model_save(model, filename = "inst/models/time-normalised.gamr")
+
+  model
+
+}
 ```
