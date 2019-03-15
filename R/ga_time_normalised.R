@@ -7,6 +7,7 @@
 #' @param total_unique_pageviews_cutoff threshold of minimum unique pageviews
 #' @param days_live_range How many days to show
 #' @param page_filter_regex Select which pages to appear
+#' @param interactive_plot Whether to have a plotly or ggplot output
 #'
 #' @return A \link[googleAnalyticsR]{ga_model} object
 #'
@@ -16,7 +17,8 @@ ga_time_normalised <- function(viewId,
                                first_day_pageviews_min = 2,
                                total_unique_pageviews_cutoff = 500,
                                days_live_range = 60,
-                               page_filter_regex = ".*"){
+                               page_filter_regex = ".*",
+                               interactive_plot = TRUE){
 
   model <- ga_model_load(filename = "inst/models/time-normalised.gamr")
 
@@ -78,7 +80,7 @@ make_time_normalised <- function(){
     ga_data_normalized %>% filter(days_live <= days_live_range)
   }
 
-  output_f <- function(ga_data_normalized, ...){
+  output_f <- function(ga_data_normalized, interactive_plot, ...){
     gg <- ggplot(ga_data_normalized,
                  mapping=aes(x = days_live, y = cumulative_uniquePageviews, color=page)) +
       geom_line() +                                          # The main "plot" operation
@@ -93,8 +95,14 @@ make_time_normalised <- function(){
             panel.grid.major.y = element_line(color = "gray80"),
             axis.ticks = element_blank())
 
-    ggplotly(gg)
+    if(interactive_plot){
+      return(ggplotly(gg))
+    }
+
+    gg
+
   }
+
   required_columns <- c("date","pagePath","uniquePageviews")
   required_packages <- c("plotly", "scales", "dplyr", "purrr", "ggplot2")
 
