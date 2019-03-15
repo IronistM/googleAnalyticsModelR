@@ -349,7 +349,10 @@ To use the end result:
     library(googleAnalyticsR)
     library(googleAnalyticsModelR)
 
-    output <- ga_time_normalised(81416156)
+    output <- ga_time_normalised(81416156, interactive_plot = FALSE)
+    print(output$plot)
+
+![](README_files/figure-markdown_strict/unnamed-chunk-9-1.png)
 
 `ga_time_normalised()` wraps a call to `ga_model()`;
 
@@ -362,15 +365,18 @@ To use the end result:
     #' @param total_unique_pageviews_cutoff threshold of minimum unique pageviews
     #' @param days_live_range How many days to show
     #' @param page_filter_regex Select which pages to appear
+    #' @param interactive_plot Whether to have a plotly or ggplot output
     #'
     #' @return A \link[googleAnalyticsR]{ga_model} object
     #'
     #' @export
+    #' @importFrom googleAnalyticsR ga_model_load ga_model
     ga_time_normalised <- function(viewId,
                                    first_day_pageviews_min = 2,
                                    total_unique_pageviews_cutoff = 500,
                                    days_live_range = 60,
-                                   page_filter_regex = ".*"){
+                                   page_filter_regex = ".*",
+                                   interactive_plot = TRUE){
 
       model <- ga_model_load(filename = "inst/models/time-normalised.gamr")
 
@@ -379,7 +385,8 @@ To use the end result:
                first_day_pageviews_min = first_day_pageviews_min,
                total_unique_pageviews_cutoff = total_unique_pageviews_cutoff,
                days_live_range = days_live_range,
-               page_filter_regex = page_filter_regex)
+               page_filter_regex = page_filter_regex,
+               interactive_plot = interactive_plot)
 
     }
 
@@ -436,7 +443,7 @@ the right function formats:
         ga_data_normalized %>% filter(days_live <= days_live_range)
       }
 
-      output_f <- function(ga_data_normalized, ...){
+      output_f <- function(ga_data_normalized, interactive_plot, ...){
         gg <- ggplot(ga_data_normalized,
                      mapping=aes(x = days_live, y = cumulative_uniquePageviews, color=page)) +
           geom_line() +                                          # The main "plot" operation
@@ -451,8 +458,14 @@ the right function formats:
                 panel.grid.major.y = element_line(color = "gray80"),
                 axis.ticks = element_blank())
 
-        ggplotly(gg)
+        if(interactive_plot){
+          return(ggplotly(gg))
+        }
+
+        gg
+
       }
+
       required_columns <- c("date","pagePath","uniquePageviews")
       required_packages <- c("plotly", "scales", "dplyr", "purrr", "ggplot2")
 

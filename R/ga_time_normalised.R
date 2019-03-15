@@ -27,7 +27,8 @@ ga_time_normalised <- function(viewId,
            first_day_pageviews_min = first_day_pageviews_min,
            total_unique_pageviews_cutoff = total_unique_pageviews_cutoff,
            days_live_range = days_live_range,
-           page_filter_regex = page_filter_regex)
+           page_filter_regex = page_filter_regex,
+           interactive_plot = interactive_plot)
 
 }
 
