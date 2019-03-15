@@ -114,7 +114,7 @@ make_time_normalised <- function(){
     model_f = model_f,
     output_f = output_f,
     required_packages = required_packages,
-    description = "Cumalitive visualisation of time-normalised traffic",
+    description = "Cumulative visualisation of time-normalised traffic",
     outputShiny = plotly::plotlyOutput,
     renderShiny = plotly::renderPlotly
   )
