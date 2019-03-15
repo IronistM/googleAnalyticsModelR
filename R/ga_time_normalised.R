@@ -20,7 +20,8 @@ ga_time_normalised <- function(viewId,
                                page_filter_regex = ".*",
                                interactive_plot = TRUE){
 
-  model <- ga_model_load(filename = "inst/models/time-normalised.gamr")
+  model <- ga_model_load(system.file("models", "time-normalised.gamr",
+                                     package = "googleAnalyticsModelR"))
 
   ga_model(viewId,
            model,

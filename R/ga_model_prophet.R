@@ -29,7 +29,8 @@ ga_model_prophet <- function(viewId,
                              dim_filter=NULL,
                              interactive_plot=FALSE){
 
-  model <- ga_model_load(filename = "inst/models/prophet.gamr")
+  model <- ga_model_load(system.file("models", "prophet.gamr",
+                                     package = "googleAnalyticsModelR"))
 
   ga_model(viewId,
            model,
